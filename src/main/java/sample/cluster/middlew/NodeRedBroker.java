@@ -89,8 +89,6 @@ public class NodeRedBroker extends AbstractBehavior<NodeRedBroker.Event> {
 
     private Behavior<Event> onUpdateReceived (NodeRedBroker.Update event) throws IOException {
 
-        int increment = 1;
-
         ObjectOutputStream out = nodeRedSocketOUT.getOut();
         BufferedReader in = nodeRedSocketIN.getIn();
 
@@ -116,19 +114,19 @@ public class NodeRedBroker extends AbstractBehavior<NodeRedBroker.Event> {
 
         if (line.equals("END")){
             getContext().getLog().info("Finished 1 computation");
-            increment = event.step;
+            //getContext().getSelf().tell(new Update(0, "START"));
 
             //TODO non Chiudere le socket se si vuole continuare con altre computazioni
             nodeRedSocketIN.stop();
             nodeRedSocketOUT.stop();
-            //return this;
+            return this;
         }
 
         //Convert from JSON to NodeRed
         ObjectMapper JSONtoObject = new ObjectMapper();
         Object object = JSONtoObject.readValue(line, Object.class);
 
-        int nextStep = event.step + increment;
+        int nextStep = event.step;
 
         if (!runningInstallations.isEmpty()) {
             Random generator = new Random();

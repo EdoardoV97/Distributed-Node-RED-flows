@@ -17,7 +17,7 @@ public class NodeRedInstallation extends AbstractBehavior<NodeRedInstallation.Ev
     interface Event extends CborSerializable {}
 
     /** Messages(events) that the actor can handle **/
-    public static final class ReceiveInput implements NodeRedInstallation.Event {
+    public static final class ReceiveInput implements Event {
         public final Object phase;
         public final int step;
         public final Object result;
@@ -40,12 +40,26 @@ public class NodeRedInstallation extends AbstractBehavior<NodeRedInstallation.Ev
         }
     }
 
+    public static final class SetUp implements Event {
+        public final int portIN;
+        public final int portOUT;
+
+        /**
+         * @param portOUT this the port bounded to the TCP-IN node in NodeRED
+         * @param portIN this the port bounded to the TCP-OUT node in NodeRED
+         */
+        public SetUp(int portOUT, int portIN) {
+            this.portOUT = portOUT;
+            this.portIN = portIN;
+        }
+    }
+
 
     /** Variables and actor state **/
     public static ServiceKey<NodeRedInstallation.ReceiveInput> NODERED_SERVICE_KEY =
             ServiceKey.create(NodeRedInstallation.ReceiveInput.class, "NodeRedInstallation");
-    private final ActorRef<NodeRedBroker.Event> myBroker;
-    //public int PORTIN, PORTOUT;
+    private ActorRef<NodeRedBroker.Event> myBroker;
+    public int PORTIN, PORTOUT;
 
 
     /** Constructor **/
@@ -53,19 +67,18 @@ public class NodeRedInstallation extends AbstractBehavior<NodeRedInstallation.Ev
         super(context);
         context.getLog().info("Registering your Node-Red installation to the repository");
         context.getSystem().receptionist().tell(Receptionist.register(NODERED_SERVICE_KEY, context.getSelf().narrow()));
-
-        myBroker = getContext().spawn(NodeRedBroker.create(), "NodeRedBroker");
-        getContext().getLog().info("Create your local broker");
     }
 
     public static Behavior<NodeRedInstallation.Event> create() {
         return Behaviors.setup(NodeRedInstallation::new);
     }
 
-
     @Override
     public Receive<Event> createReceive() {
-        return newReceiveBuilder().onMessage(ReceiveInput.class, this::onInputReceived).build();
+        return newReceiveBuilder()
+                .onMessage(ReceiveInput.class, this::onInputReceived)
+                .onMessage(SetUp.class, this::onSetUp)
+                .build();
     }
 
 
@@ -75,6 +88,18 @@ public class NodeRedInstallation extends AbstractBehavior<NodeRedInstallation.Ev
             event.replyTo.tell(new ReturnOutput("UPDATE_REQUEST_RECEIVED"));
             myBroker.tell(new NodeRedBroker.Update(event.step, event.result));
         }
+        return this;
+    }
+
+    // This method set the ports for the socket
+    private Behavior<Event> onSetUp(SetUp event){
+        PORTIN = event.portIN;
+        PORTOUT = event.portOUT;
+
+        myBroker = getContext().spawn(NodeRedBroker.create(), "NodeRedBroker");
+        myBroker.tell(new NodeRedBroker.SetUp(PORTOUT, PORTIN));
+        getContext().getLog().info("Create your local broker, with socket ports:\nPortOUT = {}\nPortIN = {}", PORTOUT, PORTIN);
+
         return this;
     }
 }

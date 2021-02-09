@@ -46,14 +46,21 @@ public class RepositoryAdmin extends AbstractBehavior<RepositoryAdmin.Event> {
 
     // This list represent the repository
     private final List<ActorRef<NodeRedInstallation.ReceiveInput>> runningInstallations = new ArrayList<>();
-    private final static int THRESHOLD_FOR_START = 1;
+    private final static int THRESHOLD_FOR_START = 2;
     private boolean started = false;
 
     @Override
     public Receive<Event> createReceive() {
         return newReceiveBuilder()
                 .onMessage(NRInstallationsUpdated.class, this::onInstallationUpdated)
+                .onMessage(StartCompleted.class, this::noBehavior)
+                .onMessage(StartFailed.class, this::noBehavior)
                 .build();
+    }
+
+    private Behavior<Event> noBehavior(Event event) {
+        /* Do nothing */
+        return this;
     }
 
     private Behavior<Event> onInstallationUpdated(NRInstallationsUpdated update) {

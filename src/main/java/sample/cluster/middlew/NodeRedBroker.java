@@ -12,11 +12,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import sample.cluster.CborSerializable;
 import sample.cluster.middlew.ServerSocket.ServerSocketToNodeRed;
 import sample.cluster.middlew.ServerSocket.SocketObject;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
 
 
 public class NodeRedBroker extends AbstractBehavior<NodeRedBroker.Event> {
@@ -71,8 +73,7 @@ public class NodeRedBroker extends AbstractBehavior<NodeRedBroker.Event> {
         }
     }
 
-    public static final class UpdateSuccessful implements Event {
-    }
+    public static final class UpdateSuccessful implements Event{}
 
     /**
      * Constructor
@@ -94,7 +95,6 @@ public class NodeRedBroker extends AbstractBehavior<NodeRedBroker.Event> {
     /**
      * Actor State and variables
      **/
-    // This list represent the repository
     private final List<ActorRef<NodeRedInstallation.ReceiveInput>> runningInstallations = new ArrayList<>();
     int PORTOUT; // To send input to NodeRed
     int PORTIN; // To receive output from NodeRed
@@ -108,22 +108,18 @@ public class NodeRedBroker extends AbstractBehavior<NodeRedBroker.Event> {
         return newReceiveBuilder()
                 .onMessage(NodeRedBroker.NRInstallationsUpdated.class, this::onInstallationUpdated)
                 .onMessage(NodeRedBroker.Update.class, this::onUpdateReceived)
+                .onMessage(NodeRedBroker.Update.class, this::noBehavior)
+                .onMessage(NodeRedBroker.InternalUpdate.class, this::onInternalUpdate)
                 .onMessage(NodeRedBroker.SetUp.class, this::onSetUp)
-                .onMessage(NodeRedBroker.UpdateSuccessful.class, this::noBehavior)
-                .onMessage(NodeRedBroker.InternalUpdate.class, this::sendUpdate)
                 .build();
     }
 
 
-
-    private Behavior<Event> noBehavior(Event event) {
-        /* Do nothing */
-        return this;
-    }
-
-    private Behavior<NodeRedBroker.Event> onInstallationUpdated(NodeRedBroker.NRInstallationsUpdated update) {
-        runningInstallations.clear();
-        runningInstallations.addAll(update.newInstallations);
+    /**
+     * Behaviors of the actor
+     **/
+    private Behavior<Event> noBehavior(Event event){
+        /* Do nothing. This is to prevent unhandled messages going in Dead letters */
         return this;
     }
 
@@ -134,14 +130,23 @@ public class NodeRedBroker extends AbstractBehavior<NodeRedBroker.Event> {
 
         nodeRedSocketOUT = new ServerSocketToNodeRed(PORTOUT);
         nodeRedSocketIN = new ServerSocketToNodeRed(PORTIN);
+        getContext().spawn(NodeRedInputListener.create(), "NodeRedInputListener")
+                .tell(new NodeRedInputListener.SetUp(nodeRedSocketIN.getIn(), getContext().getSelf()));
+
         return this;
     }
 
+    private Behavior<NodeRedBroker.Event> onInstallationUpdated(NodeRedBroker.NRInstallationsUpdated update) {
+        // Get all the NR installation registered to the receptionist till now,
+        // querying the local Receptionist replicator
+        runningInstallations.clear();
+        runningInstallations.addAll(update.newInstallations);
+        return this;
+    }
 
     private Behavior<Event> onUpdateReceived(NodeRedBroker.Update event) throws IOException {
 
         ObjectOutputStream out = nodeRedSocketOUT.getOut();
-        BufferedReader in = nodeRedSocketIN.getIn();
 
         // Convert Object to JSON to send to NodeRed
         getContext().getLog().info("Received external update: {}", event.result);
@@ -151,38 +156,15 @@ public class NodeRedBroker extends AbstractBehavior<NodeRedBroker.Event> {
         json = mapper.writeValueAsString(socketObject);
         getContext().getLog().info("Update converted in JSON: {}", json);
 
-
         // Send the input to NodeRed
         out.writeObject(json);
         out.flush();
         getContext().getLog().info("Successfully send input to NodeRed");
 
-
-        //Receive the output from NodeRed
-        //TODO aggiungere Thread o attore per leggere input all'infinito
-        getContext().getLog().info("Waiting for input from NodeRed");
-        String line = in.readLine();
-        getContext().getLog().info("Received local input from NodeRed: {}", line);
-
-
-        if (line.equals("END")) {
-            getContext().getLog().info("Finished 1 computation");
-            getContext().getSelf().tell(new Update(0, "START"));
-            return this;
-        }
-
-        //Convert from JSON to Object
-        //ObjectMapper JSONtoObject = new ObjectMapper();
-        //Object object = JSONtoObject.readValue(line, Object.class);
-
-        int nextStep = event.step + 1;
-
-        getContext().getSelf().tell(new InternalUpdate(nextStep, line));
         return this;
     }
 
-
-    private Behavior<Event> sendUpdate(InternalUpdate event) {
+    private Behavior<Event> onInternalUpdate(NodeRedBroker.InternalUpdate internalUpdate) {
         if (!runningInstallations.isEmpty()) {
             Random generator = new Random();
             ActorRef<NodeRedInstallation.ReceiveInput> selectedNodeRed = runningInstallations.get(
@@ -193,13 +175,13 @@ public class NodeRedBroker extends AbstractBehavior<NodeRedBroker.Event> {
                     NodeRedInstallation.ReturnOutput.class,
                     selectedNodeRed,
                     timeout,
-                    responseRef -> new NodeRedInstallation.ReceiveInput("UPDATE", event.step, event.result, responseRef),
+                    responseRef -> new NodeRedInstallation.ReceiveInput("UPDATE", internalUpdate.step, internalUpdate.result, responseRef),
                     (response, failure) -> {
                         if (response != null) {
                             return new UpdateSuccessful();
                         } else {
                             getContext().getLog().info("Fail in sending update! The target installation may have left.\nRetry...");
-                            return new InternalUpdate(event.step, event.result);
+                            return new InternalUpdate(internalUpdate.step, internalUpdate.result);
                         }
                     });
         }

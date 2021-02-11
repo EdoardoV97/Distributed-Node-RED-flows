@@ -7,7 +7,6 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import akka.actor.typed.receptionist.Receptionist;
-import java.time.Duration;
 import java.util.*;
 
 
@@ -15,6 +14,9 @@ public class RepositoryAdmin extends AbstractBehavior<RepositoryAdmin.Event> {
 
     interface Event{}
 
+    /**
+     * Messages(events) that the actor can handle
+     **/
     private static final class NRInstallationsUpdated implements Event {
         public final Set<ActorRef<NodeRedInstallation.ReceiveInput>> newInstallations;
 
@@ -23,10 +25,10 @@ public class RepositoryAdmin extends AbstractBehavior<RepositoryAdmin.Event> {
         }
     }
 
-    public static final class StartCompleted implements Event{}
-    public static final class StartFailed implements Event{}
 
-
+    /**
+     * Constructor
+     **/
     public RepositoryAdmin(ActorContext<Event> context) {
         super(context);
 
@@ -44,29 +46,26 @@ public class RepositoryAdmin extends AbstractBehavior<RepositoryAdmin.Event> {
     }
 
 
+    /**
+     * Actor State and variables
+     **/
     // This list represent the repository
     private final List<ActorRef<NodeRedInstallation.ReceiveInput>> runningInstallations = new ArrayList<>();
-    private final static int THRESHOLD_FOR_START = 2;
-    private boolean started = false;
 
     @Override
     public Receive<Event> createReceive() {
         return newReceiveBuilder()
                 .onMessage(NRInstallationsUpdated.class, this::onInstallationUpdated)
-                .onMessage(StartCompleted.class, this::noBehavior)
-                .onMessage(StartFailed.class, this::noBehavior)
                 .build();
     }
 
-    private Behavior<Event> noBehavior(Event event) {
-        /* Do nothing */
-        return this;
-    }
 
+    /**
+     * Behaviors of the actor
+     **/
     private Behavior<Event> onInstallationUpdated(NRInstallationsUpdated update) {
-        // Get all the NR installation registered to the receptionist till now;
-        // In this way if this actor crash, when a new one is instantiated he get the up-to-date
-        // ist of NR installations from the Receptionist
+        // Get all the NR installation registered to the receptionist till now,
+        // querying the local Receptionist replicator
         if (runningInstallations.size() > update.newInstallations.size()){
             getContext().getLog().info("A running installation has just left\n");
         }
@@ -74,6 +73,7 @@ public class RepositoryAdmin extends AbstractBehavior<RepositoryAdmin.Event> {
             getContext().getLog().info("A new installation has joined!\n");
         }
 
+        // Print info about running installations
         runningInstallations.clear();
         runningInstallations.addAll(update.newInstallations);
         if (!runningInstallations.isEmpty()) {
@@ -84,37 +84,8 @@ public class RepositoryAdmin extends AbstractBehavior<RepositoryAdmin.Event> {
         }
         else{
             getContext().getLog().info("No installation is running");
-            started = false;
         }
 
-        // If the current set of running installation is bigger than a threshold, Start the computation
-        if (runningInstallations.size() >= THRESHOLD_FOR_START && !started){
-            this.OnStartCompleted();
-            started = true;
-        }
         return this;
-    }
-
-    private void OnStartCompleted() {
-            // Select randomly a NodeRedInstallation for the computation of next step
-            Random generator = new Random();
-            ActorRef<NodeRedInstallation.ReceiveInput> selectedNodeRed = runningInstallations.get(
-                                                                generator.nextInt(runningInstallations.size()));
-            // how much time can pass before we consider a request failed
-            Duration timeout = Duration.ofSeconds(5);
-            getContext().getLog().info("Starting computation on installation {}", selectedNodeRed);
-            getContext().ask(
-                    NodeRedInstallation.ReturnOutput.class,
-                    selectedNodeRed,
-                    timeout,
-                    responseRef -> new NodeRedInstallation.ReceiveInput("UPDATE", 0, "START", responseRef),
-                    (response, failure) -> {
-                        if (response != null) {
-                            return new StartCompleted();
-                        } else {
-                            getContext().getLog().info("Error in Computation Step in {}", selectedNodeRed);
-                            return new StartFailed();
-                        }
-                    });
     }
 }

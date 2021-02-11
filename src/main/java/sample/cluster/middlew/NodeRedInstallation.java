@@ -16,7 +16,9 @@ public class NodeRedInstallation extends AbstractBehavior<NodeRedInstallation.Ev
 
     interface Event extends CborSerializable {}
 
-    /** Messages(events) that the actor can handle **/
+    /**
+     * Messages(events) that the actor can handle
+     **/
     public static final class ReceiveInput implements Event {
         public final Object phase;
         public final int step;
@@ -55,14 +57,9 @@ public class NodeRedInstallation extends AbstractBehavior<NodeRedInstallation.Ev
     }
 
 
-    /** Variables and actor state **/
-    public static ServiceKey<NodeRedInstallation.ReceiveInput> NODERED_SERVICE_KEY =
-            ServiceKey.create(NodeRedInstallation.ReceiveInput.class, "NodeRedInstallation");
-    private ActorRef<NodeRedBroker.Event> myBroker;
-    public int PORTIN, PORTOUT;
-
-
-    /** Constructor **/
+    /**
+     * Constructor
+     **/
     public NodeRedInstallation(ActorContext<Event> context) {
         super(context);
         context.getLog().info("Registering your Node-Red installation to the repository");
@@ -73,6 +70,15 @@ public class NodeRedInstallation extends AbstractBehavior<NodeRedInstallation.Ev
         return Behaviors.setup(NodeRedInstallation::new);
     }
 
+
+    /**
+     * Variables and actor state
+     **/
+    public static ServiceKey<NodeRedInstallation.ReceiveInput> NODERED_SERVICE_KEY =
+            ServiceKey.create(NodeRedInstallation.ReceiveInput.class, "NodeRedInstallation");
+    private ActorRef<NodeRedBroker.Event> myBroker;
+    public int PORTIN, PORTOUT;
+
     @Override
     public Receive<Event> createReceive() {
         return newReceiveBuilder()
@@ -82,6 +88,9 @@ public class NodeRedInstallation extends AbstractBehavior<NodeRedInstallation.Ev
     }
 
 
+    /**
+     * Behaviors of the actor
+     **/
     private Behavior<Event> onInputReceived(ReceiveInput event) {
         if ((event.phase.toString().equals("UPDATE"))){
             // Send the update to the local broker associated to the installation

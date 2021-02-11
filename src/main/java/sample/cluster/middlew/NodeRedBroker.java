@@ -108,7 +108,7 @@ public class NodeRedBroker extends AbstractBehavior<NodeRedBroker.Event> {
         return newReceiveBuilder()
                 .onMessage(NodeRedBroker.NRInstallationsUpdated.class, this::onInstallationUpdated)
                 .onMessage(NodeRedBroker.Update.class, this::onUpdateReceived)
-                .onMessage(NodeRedBroker.Update.class, this::noBehavior)
+                .onMessage(NodeRedBroker.UpdateSuccessful.class, this::noBehavior)
                 .onMessage(NodeRedBroker.InternalUpdate.class, this::onInternalUpdate)
                 .onMessage(NodeRedBroker.SetUp.class, this::onSetUp)
                 .build();

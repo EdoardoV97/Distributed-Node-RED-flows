@@ -40,13 +40,11 @@ public class ClusterMain {
 
   public static void main(String[] args) {
     if (args.length == 0) {
-      //startup("Server", 25251);
-      startup("NodeRedInstallation", 0);
       PORTOUT = 12345;
       PORTIN = 56789;
+      startup("NodeRedInstallation", 0);
     } else {
       if (args.length != 4)
-        // TODO aggiungere possibilita di non indicare porte per le socket e usare quindi quelle di default
         throw new IllegalArgumentException("Incorrect input: See Readme for info");
 
       PORTOUT = Integer.parseInt(args[2]);
@@ -54,7 +52,6 @@ public class ClusterMain {
       startup(args[0], Integer.parseInt(args[1]));
     }
   }
-
 
   private static void startup(String role, int port) {
     // Override the configuration of the port
@@ -65,7 +62,6 @@ public class ClusterMain {
     Config config = ConfigFactory.parseMap(overrides)
         .withFallback(ConfigFactory.load("application"));
 
-    //ActorSystem<Void> system = ActorSystem.create(RootBehavior.create(), "ClusterSystem", config);
     ActorSystem.create(RootBehavior.create(), "ClusterSystem", config);
   }
 }

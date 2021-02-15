@@ -127,7 +127,8 @@ Configure both of them in Connect to mode. Insert the IP of the Socket, and the 
 
 4) Send the output
 - Add a node to convert `JavaScript Object to JSON`.
-- Add a `function` node to add a newline character to inform Akka that we have produced an output.
+- A `function` node to add the info about the current step.
+- A `function` node to add a newline character to inform Akka that we have produced an output.
 - Connect these 2 nodes in sequence to the TCP-out.
 
 Please refer to the example flows for any doubt.

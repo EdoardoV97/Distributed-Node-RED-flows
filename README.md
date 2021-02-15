@@ -18,8 +18,8 @@ Optional, if you want to run the application with Maven:
 ## Command line arguments
 - Role in the Cluster: Can be `Server`, `Seed`, `NodeRedInstallation`.
 - Port for the Akka Cluster node: If `0` it will use a random available port.
-- Port for the TCP-Out socket. Set to `0` for `Server` and `Seed`. 
-- Port for the TCP-In socket. Set to `0` for `Server` and `Seed`.
+- Port for the TCP-Out socket(Akka side). Set to `0` for `Server` and `Seed`. 
+- Port for the TCP-In socket(Akka side). Set to `0` for `Server` and `Seed`.
 
 If none of these arguments are specified, the default behavior is to start a new Akka Cluster node with role `NodeRedInstallation`, random port for the Cluster node, ports `12345` and `56789` for the Sockets.
 
@@ -115,4 +115,20 @@ Download the [.bat] file from the Deliverables folder. Place them in the same fo
 
 ## How to modify your Node-RED flow to be distributed
 
-//TODO
+1) Add a `TCP-in` node. The port must be the one associated to the *TCP-out* socket on Akka side.
+2) Add a `TCP-out` node. The port must be the one associated to the *TCP-in* socket on Akka side.
+Configure both of them in Connect to mode. Insert the IP of the Socket, and the ports. Configure the TCP-in node to output *Stream of strings*.
+
+3) Receive the input   
+- Connect to the TCP-in node 2 nodes in sequence. First a `function` node to clean the TCP input, and then a node to convert `JSON to JavaScript Object`.
+- Add a `switch node` connected in sequence to the JSON to JavaScript Object node. This is the node where the info about the step is read, so to know which is the step to execute in the flow.
+- a) If the input received by TCP-in needs to be printed or used in the next step, 2 more nodes connected to the switch one are needed: a `change node` to remove step's info, and a node to convert `to JavaScript Object`(not always needed, but harmless even if not needed). 
+- b) If the input received is not needed for the next step, simply connect the next step node to the switch one.
+
+4) Send the output
+- Add a node to convert `JavaScript Object to JSON`.
+- Add a `function` node to add a newline character to inform Akka that we have produced an output.
+- Connect these 2 nodes in sequence to the TCP-out.
+
+Please refer to the example flows for any doubt.
+   

@@ -1,5 +1,11 @@
 # Distributed Node-RED flows
 
+## Authors 
+- Edoardo Venir
+- Leonardo Ruzza
+- Matteo Plona
+
+## Akka config
 To enable cluster capabilities in the Akka project the remote settings have been added, and `cluster` has been used as the `akka.actor.provider`. The `akka.cluster.seed-nodes` have been also be added to `application.conf` file.
 The seed nodes are configured contact points which newly started nodes will try to connect with in order to join the cluster. Currently, 2 seed nodes have been configured on ports `25251` and `25252`.
 

@@ -1,5 +1,7 @@
 # Distributed Node-RED flows
 
+A project that make possible to distribute the work of a NodeRed flow accross more machines.
+
 ## Authors 
 - Edoardo Venir
 - Leonardo Ruzza

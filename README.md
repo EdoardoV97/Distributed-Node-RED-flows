@@ -1,6 +1,6 @@
 # Distributed Node-RED flows
 
-Project for the Middleware Technlogies course @ Polytechnic of Milan a.y. 2020/2021
+Project for the Middleware Technlogies course @ Polytechnic of Milan a.y. 2020/2021.
 The implemented solution make possible to distribute the work of a NodeRed flow accross more machines.
 
 ## Authors 
